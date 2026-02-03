@@ -1,13 +1,14 @@
 {
   "name": "fintrack-pro",
-  "version": "1.0.0",
-  "description": "Sophisticated Expense and Salary Management System",
+  "version": "1.1.0",
+  "description": "Sophisticated Expense and Salary Management System with Firebase",
   "author": "Mehedi Hasan Soumik",
   "private": true,
   "dependencies": {
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "lucide-react": "^0.563.0",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "firebase": "^11.0.1"
   }
 }

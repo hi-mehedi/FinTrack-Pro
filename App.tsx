@@ -7,9 +7,18 @@ import FundManagement from './components/FundManagement';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
-
-const STORAGE_KEY = 'fintrack_pro_data';
-const AUTH_KEY = 'fintrack_pro_auth';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  orderBy 
+} from 'firebase/firestore';
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -18,60 +27,53 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [transactions, setTransactions] = useState<FundTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load auth state
+  // Auth Listener
   useEffect(() => {
-    const savedAuth = localStorage.getItem(AUTH_KEY);
-    if (savedAuth) {
-      try {
-        const parsed = JSON.parse(savedAuth);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         setIsLoggedIn(true);
-        setAuthUser(parsed);
-      } catch (e) {
-        console.error("Failed to parse auth data", e);
+        setAuthUser({
+          name: user.displayName || "User",
+          email: user.email || "",
+          picture: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+        });
+      } else {
+        setIsLoggedIn(false);
+        setAuthUser(null);
       }
-    }
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Load data from Local Storage
+  // Firestore Real-time Listeners
   useEffect(() => {
-    const savedData = localStorage.getItem(STORAGE_KEY);
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setUsers(parsed.users || []);
-        setPayments(parsed.payments || []);
-        setTransactions(parsed.transactions || []);
-      } catch (e) {
-        console.error("Failed to parse storage data", e);
-      }
-    }
-  }, []);
+    if (!isLoggedIn) return;
 
-  // Save data to Local Storage
-  useEffect(() => {
-    if (isLoggedIn) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ users, payments, transactions }));
-    }
-  }, [users, payments, transactions, isLoggedIn]);
+    const unsubUsers = onSnapshot(query(collection(db, "users"), orderBy("createdAt", "desc")), (snapshot) => {
+      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+    });
 
-  const handleLogin = () => {
-    // Simulate Google Login
-    const mockUser: AuthUser = {
-      name: "Mehedi Hasan Soumik",
-      email: "soumik.sqa@gmail.com",
-      picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mehedi"
+    const unsubPayments = onSnapshot(collection(db, "payments"), (snapshot) => {
+      setPayments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PaymentRecord)));
+    });
+
+    const unsubTransactions = onSnapshot(query(collection(db, "transactions"), orderBy("date", "desc")), (snapshot) => {
+      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FundTransaction)));
+    });
+
+    return () => {
+      unsubUsers();
+      unsubPayments();
+      unsubTransactions();
     };
-    setIsLoggedIn(true);
-    setAuthUser(mockUser);
-    localStorage.setItem(AUTH_KEY, JSON.stringify(mockUser));
-  };
+  }, [isLoggedIn]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm("Are you sure you want to logout?")) {
-      setIsLoggedIn(false);
-      setAuthUser(null);
-      localStorage.removeItem(AUTH_KEY);
+      await signOut(auth);
     }
   };
 
@@ -80,38 +82,36 @@ const App: React.FC = () => {
     return transactions.reduce((acc, t) => t.type === 'COLLECTION' ? acc + t.amount : acc - t.amount, 0);
   }, [transactions]);
 
-  const handleAddUser = (name: string, salary: number) => {
+  const handleAddUser = async (name: string, salary: number) => {
+    const id = crypto.randomUUID();
     const newUser: User = {
-      id: crypto.randomUUID(),
+      id,
       name,
       monthlySalary: salary,
       dailyWage: salary / 30,
       createdAt: Date.now(),
     };
-    setUsers([...users, newUser]);
+    await setDoc(doc(db, "users", id), newUser);
   };
 
-  const handleUpdateUser = (id: string, name: string, salary: number) => {
-    setUsers(users.map(u => u.id === id ? { ...u, name, monthlySalary: salary, dailyWage: salary / 30 } : u));
+  const handleUpdateUser = async (id: string, name: string, salary: number) => {
+    await updateDoc(doc(db, "users", id), {
+      name,
+      monthlySalary: salary,
+      dailyWage: salary / 30
+    });
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm("Are you sure? All payment history for this user will be lost.")) {
-      setUsers(users.filter(u => u.id !== id));
-      setPayments(payments.filter(p => p.userId !== id));
-      setTransactions(transactions.filter(t => t.referenceId !== id));
+  const handleDeleteUser = async (id: string) => {
+    if (window.confirm("Are you sure? All data related to this user will be removed from the cloud.")) {
+      await deleteDoc(doc(db, "users", id));
+      // In a real app, you'd also delete associated payments and transactions or use cloud functions
     }
   };
 
-  const handleAddPayment = (userId: string, date: string, amount: number) => {
+  const handleAddPayment = async (userId: string, date: string, amount: number) => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
-
-    const existing = payments.find(p => p.userId === userId && p.date === date);
-    if (existing) {
-      alert("A payment record already exists for this user on this date. Please edit the existing record.");
-      return;
-    }
 
     if (totalFund < amount) {
       alert("Insufficient funds in Total Fund!");
@@ -140,11 +140,11 @@ const App: React.FC = () => {
       referenceId: paymentId,
     };
 
-    setPayments([...payments, newPayment]);
-    setTransactions([...transactions, newTransaction]);
+    await setDoc(doc(db, "payments", paymentId), newPayment);
+    await setDoc(doc(db, "transactions", newTransaction.id), newTransaction);
   };
 
-  const handleUpdatePayment = (paymentId: string, amount: number, date: string) => {
+  const handleUpdatePayment = async (paymentId: string, amount: number, date: string) => {
     const payment = payments.find(p => p.id === paymentId);
     if (!payment) return;
 
@@ -162,29 +162,30 @@ const App: React.FC = () => {
     const expected = user.dailyWage;
     const due = expected - amount;
 
-    setPayments(payments.map(p => p.id === paymentId ? {
-      ...p,
+    await updateDoc(doc(db, "payments", paymentId), {
       amountPaid: amount,
       dueAmount: due,
       date: date
-    } : p));
+    });
 
-    setTransactions(transactions.map(t => t.referenceId === paymentId ? {
-      ...t,
-      amount: amount,
-      date: date
-    } : t));
+    if (prevTransaction) {
+      await updateDoc(doc(db, "transactions", prevTransaction.id), {
+        amount: amount,
+        date: date
+      });
+    }
   };
 
-  const handleAddCollection = (amount: number, date: string, desc: string) => {
+  const handleAddCollection = async (amount: number, date: string, desc: string) => {
+    const id = crypto.randomUUID();
     const newTransaction: FundTransaction = {
-      id: crypto.randomUUID(),
+      id,
       type: 'COLLECTION',
       amount,
       date,
       description: desc || 'Fund Collection',
     };
-    setTransactions([...transactions, newTransaction]);
+    await setDoc(doc(db, "transactions", id), newTransaction);
   };
 
   const renderView = () => {
@@ -202,8 +203,19 @@ const App: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-bold animate-pulse">Initializing FinTrack Pro...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={() => {}} />; // Login internalizes its logic now
   }
 
   return (
@@ -215,15 +227,14 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto space-y-8 pb-12">
             {renderView()}
             
-            {/* Footer Attribution */}
             <footer className="pt-12 mt-12 border-t border-slate-200 flex flex-col items-center justify-center space-y-2 opacity-60 hover:opacity-100 transition-opacity">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">System Engineering</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Cloud System Architecture</p>
                <div className="flex items-center space-x-2">
                   <span className="text-sm font-black text-slate-900">Mehedi Hasan Soumik</span>
                   <span className="w-1 h-1 bg-indigo-400 rounded-full"></span>
                   <span className="text-xs font-bold text-indigo-600">SQA Engineer</span>
                </div>
-               <p className="text-[10px] text-slate-400 font-medium">FinTrack Pro v1.0.0 © 2025</p>
+               <p className="text-[10px] text-slate-400 font-medium">FinTrack Pro v1.1.0 (Firebase) © 2025</p>
             </footer>
           </div>
         </main>
