@@ -105,7 +105,6 @@ const App: React.FC = () => {
   const handleDeleteUser = async (id: string) => {
     if (window.confirm("Are you sure? All data related to this user will be removed from the cloud.")) {
       await deleteDoc(doc(db, "users", id));
-      // In a real app, you'd also delete associated payments and transactions or use cloud functions
     }
   };
 
@@ -188,6 +187,20 @@ const App: React.FC = () => {
     await setDoc(doc(db, "transactions", id), newTransaction);
   };
 
+  const handleUpdateCollection = async (id: string, amount: number, date: string, desc: string) => {
+    await updateDoc(doc(db, "transactions", id), {
+      amount,
+      date,
+      description: desc
+    });
+  };
+
+  const handleDeleteCollection = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this fund entry?")) {
+      await deleteDoc(doc(db, "transactions", id));
+    }
+  };
+
   const renderView = () => {
     switch (view) {
       case 'DASHBOARD':
@@ -197,7 +210,13 @@ const App: React.FC = () => {
       case 'PAYMENTS':
         return <PaymentTracking users={users} payments={payments} onAddPayment={handleAddPayment} onUpdatePayment={handleUpdatePayment} />;
       case 'FUNDS':
-        return <FundManagement transactions={transactions} totalFund={totalFund} onAddCollection={handleAddCollection} />;
+        return <FundManagement 
+          transactions={transactions} 
+          totalFund={totalFund} 
+          onAddCollection={handleAddCollection}
+          onUpdateCollection={handleUpdateCollection}
+          onDeleteCollection={handleDeleteCollection}
+        />;
       default:
         return <Dashboard users={users} payments={payments} totalFund={totalFund} transactions={transactions} />;
     }
@@ -215,7 +234,7 @@ const App: React.FC = () => {
   }
 
   if (!isLoggedIn) {
-    return <Login onLogin={() => {}} />; // Login internalizes its logic now
+    return <Login onLogin={() => {}} />;
   }
 
   return (
