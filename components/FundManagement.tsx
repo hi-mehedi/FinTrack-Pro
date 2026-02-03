@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FundTransaction } from '../types';
-import { PlusCircle, Edit2, Trash2, X, RotateCcw, ArrowUpRight, ArrowDownRight, History, Save } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, X, RotateCcw, ArrowUpRight, ArrowDownRight, History, Save, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
 
 interface FundManagementProps {
   transactions: FundTransaction[];
@@ -40,104 +40,119 @@ const FundManagement: React.FC<FundManagementProps> = ({ transactions, totalFund
   const filteredHistory = transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><PlusCircle size={80}/></div>
-            <p className="text-indigo-100 font-black uppercase text-[10px] tracking-[0.2em] mb-1">Cash in Hand</p>
-            <h2 className="text-5xl font-black mb-8">৳{totalFund.toLocaleString()}</h2>
-            <div className="space-y-3">
-               <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/5 flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                     <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                     <span className="text-xs font-bold">Total Collected</span>
+    <div className="space-y-10 animate-reveal pb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-1 space-y-8">
+          <div className="bg-slate-900 p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-10 text-white/5 group-hover:scale-125 transition-transform duration-1000">
+               <TrendingUp size={160} />
+            </div>
+            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-1.5">Liquid Capital</p>
+            <h2 className="text-5xl font-black mb-10 tracking-tight">৳{totalFund.toLocaleString()}</h2>
+            <div className="space-y-4">
+               <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex justify-between items-center backdrop-blur-md">
+                  <div className="flex items-center space-x-3">
+                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <TrendingUp size={20} />
+                     </div>
+                     <span className="text-xs font-bold text-slate-300">Total Inflow</span>
                   </div>
-                  <span className="font-black text-lg">৳{transactions.filter(t => t.type === 'COLLECTION').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
+                  <span className="font-black text-xl text-emerald-400">৳{transactions.filter(t => t.type === 'COLLECTION').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
                </div>
-               <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/5 flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                     <div className="w-2 h-2 rounded-full bg-rose-400"></div>
-                     <span className="text-xs font-bold">Total Expenses</span>
+               <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex justify-between items-center backdrop-blur-md">
+                  <div className="flex items-center space-x-3">
+                     <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                        <TrendingDown size={20} />
+                     </div>
+                     <span className="text-xs font-bold text-slate-300">Total Outflow</span>
                   </div>
-                  <span className="font-black text-lg">৳{transactions.filter(t => t.type !== 'COLLECTION').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
+                  <span className="font-black text-xl text-rose-400">৳{transactions.filter(t => t.type !== 'COLLECTION').reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
                </div>
             </div>
           </div>
 
-          <div className={`bg-white p-10 rounded-[3rem] border shadow-sm space-y-6 transition-all ${editingId ? 'ring-2 ring-indigo-500' : ''}`}>
+          <div className={`bg-white p-10 rounded-[4rem] border shadow-sm space-y-8 transition-all duration-500 ${editingId ? 'ring-8 ring-indigo-500/5' : ''}`}>
             <div className="flex justify-between items-center">
-              <h3 className="text-xl font-black text-slate-800">{editingId ? 'Edit Entry' : 'Fund Manager'}</h3>
-              {editingId && <button onClick={() => { setEditingId(null); setAmount(''); }} className="p-2 text-rose-500"><X size={20}/></button>}
+              <h3 className="text-2xl font-black text-slate-900">{editingId ? 'Modify Entry' : 'Fund Manager'}</h3>
+              {editingId && <button onClick={() => { setEditingId(null); setAmount(''); }} className="p-3 bg-rose-50 text-rose-500 rounded-2xl transition-all active-scale"><X size={20}/></button>}
             </div>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Amount (TK)</label>
-                <input type="number" placeholder="0.00" className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-lg outline-none" value={amount} onChange={e=>setAmount(e.target.value)} />
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-4 tracking-widest">Entry Amount (৳)</label>
+                <input type="number" placeholder="0.00" className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] font-black text-xl outline-none focus:bg-white focus:border-indigo-500 transition-all shadow-inner" value={amount} onChange={e=>setAmount(e.target.value)} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Note/Description</label>
-                <input placeholder="Optional details..." className="w-full p-4 bg-slate-50 border rounded-2xl font-bold outline-none" value={description} onChange={e=>setDescription(e.target.value)} />
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-4 tracking-widest">Description</label>
+                <input placeholder="Note for reference..." className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold outline-none focus:bg-white focus:border-indigo-500 transition-all shadow-inner" value={description} onChange={e=>setDescription(e.target.value)} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Transaction Date</label>
-                <input type="date" className="w-full p-4 bg-slate-50 border rounded-2xl font-bold outline-none" value={date} onChange={e=>setDate(e.target.value)} />
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-4 tracking-widest">Transaction Date</label>
+                <input type="date" className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold outline-none focus:bg-white focus:border-indigo-500 transition-all shadow-inner" value={date} onChange={e=>setDate(e.target.value)} />
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => handleAction('COLLECTION')} className="py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center space-x-2">
-                {editingId ? <Save size={16}/> : null}
-                <span>{editingId ? 'Update' : 'Add Cash'}</span>
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => handleAction('COLLECTION')} className="py-5 bg-emerald-600 text-white rounded-[1.75rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-100 flex items-center justify-center space-x-3 active-scale transition-all">
+                {editingId ? <Save size={18}/> : <PlusCircle size={18}/>}
+                <span>{editingId ? 'Update' : 'Add Fund'}</span>
               </button>
-              <button onClick={() => handleAction('RETURN')} className="py-4 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center space-x-2">
-                <RotateCcw size={14}/> <span>{editingId ? 'Return' : 'Withdraw'}</span>
+              <button onClick={() => handleAction('RETURN')} className="py-5 bg-rose-600 text-white rounded-[1.75rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-100 flex items-center justify-center space-x-3 active-scale transition-all">
+                <RotateCcw size={18}/> <span>{editingId ? 'Return' : 'Withdraw'}</span>
               </button>
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-[3rem] border shadow-sm overflow-hidden flex flex-col h-[750px]">
-             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-                <h3 className="text-xl font-black text-slate-900">Financial History</h3>
-                <div className="flex space-x-2">
-                   <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg uppercase tracking-wider">All Transactions</span>
+          <div className="bg-white rounded-[4rem] border shadow-sm overflow-hidden flex flex-col h-[850px]">
+             <div className="p-10 border-b flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-sm">
+                    <ReceiptText size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 leading-none">Capital Ledger</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Audit Trail</p>
+                  </div>
                 </div>
              </div>
              <div className="flex-1 overflow-y-auto custom-scrollbar">
                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky top-0 z-10">
+                  <thead className="bg-slate-50/50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 z-10 backdrop-blur-md">
                     <tr>
-                      <th className="px-8 py-5">Date</th>
-                      <th className="px-6 py-5">Activity</th>
-                      <th className="px-6 py-5">Amount</th>
-                      <th className="px-8 py-5 text-center">Action</th>
+                      <th className="px-10 py-6">Timeline</th>
+                      <th className="px-6 py-6">Classification</th>
+                      <th className="px-6 py-6">Monetary Flow</th>
+                      <th className="px-10 py-6 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredHistory.map(t => {
                       const isAuto = t.type === 'PAYMENT' || t.type === 'BAZAR';
+                      const entryDate = new Date(t.date);
                       return (
-                        <tr key={t.id} className={`hover:bg-slate-50/50 transition-colors ${editingId === t.id ? 'bg-indigo-50/50' : ''}`}>
-                          <td className="px-8 py-6 text-xs font-bold text-slate-500">{new Date(t.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-6">
-                             <p className="text-sm font-black text-slate-800">{t.description}</p>
-                             <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${t.type === 'COLLECTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        <tr key={t.id} className={`hover:bg-slate-50/30 transition-colors ${editingId === t.id ? 'bg-indigo-50/50' : ''}`}>
+                          <td className="px-10 py-8">
+                             <p className="text-sm font-black text-slate-800">{entryDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{entryDate.getFullYear()}</p>
+                          </td>
+                          <td className="px-6 py-8">
+                             <p className="text-sm font-black text-slate-800 leading-tight mb-1.5">{t.description}</p>
+                             <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border-2 shadow-sm ${t.type === 'COLLECTION' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                                {t.type}
                              </span>
                           </td>
-                          <td className={`px-6 py-6 font-black text-lg ${t.type === 'COLLECTION' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <td className={`px-6 py-8 font-black text-xl tracking-tight ${t.type === 'COLLECTION' ? 'text-emerald-600' : 'text-rose-600'}`}>
                              {t.type === 'COLLECTION' ? '+' : '-'}৳{t.amount.toLocaleString()}
                           </td>
-                          <td className="px-8 py-6 text-center">
+                          <td className="px-10 py-8 text-right">
                             {!isAuto ? (
-                              <div className="flex justify-center space-x-1">
-                                <button onClick={() => startEdit(t)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-white rounded-xl shadow-sm transition-all"><Edit2 size={14}/></button>
-                                <button onClick={() => onDeleteCollection(t.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm transition-all"><Trash2 size={14}/></button>
+                              <div className="flex justify-end space-x-1">
+                                <button onClick={() => startEdit(t)} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl shadow-sm transition-all active-scale"><Edit2 size={16}/></button>
+                                <button onClick={() => onDeleteCollection(t.id)} className="p-3 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm transition-all active-scale"><Trash2 size={16}/></button>
                               </div>
                             ) : (
-                              <span className="text-[9px] font-black text-slate-300 uppercase italic">Auto Log</span>
+                              <span className="text-[10px] font-black text-slate-300 uppercase italic opacity-40">AUTO LOG</span>
                             )}
                           </td>
                         </tr>
@@ -146,9 +161,9 @@ const FundManagement: React.FC<FundManagementProps> = ({ transactions, totalFund
                   </tbody>
                </table>
                {filteredHistory.length === 0 && (
-                 <div className="p-20 text-center space-y-4">
-                    <History size={60} className="mx-auto text-slate-200" />
-                    <p className="font-bold text-slate-400">No transactions recorded yet.</p>
+                 <div className="p-32 text-center space-y-4 opacity-20">
+                    <History size={60} className="mx-auto" />
+                    <p className="font-bold text-lg">No fund records.</p>
                  </div>
                )}
              </div>
