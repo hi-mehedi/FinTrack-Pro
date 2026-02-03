@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, LogIn } from 'lucide-react';
+import { Wallet, LogIn, AlertCircle } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup } from 'firebase/auth';
 
@@ -18,7 +18,11 @@ const Login: React.FC<LoginProps> = () => {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
       console.error("Login Error:", err);
-      setError(err.message || "Failed to sign in with Google.");
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domain Unauthorized: Please add this domain to 'Authorized domains' in your Firebase Authentication settings.");
+      } else {
+        setError(err.message || "Failed to sign in with Google.");
+      }
     } finally {
       setLoading(false);
     }
@@ -36,8 +40,9 @@ const Login: React.FC<LoginProps> = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-sm font-medium">
-            {error}
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-sm font-medium flex items-start space-x-2">
+            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
