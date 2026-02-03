@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, PaymentRecord, FundTransaction, View, AuthUser } from './types';
 import Dashboard from './components/Dashboard';
@@ -189,8 +188,6 @@ const App: React.FC = () => {
   };
 
   const renderView = () => {
-    if (!isLoggedIn) return <Login onLogin={handleLogin} />;
-
     switch (view) {
       case 'DASHBOARD':
         return <Dashboard users={users} payments={payments} totalFund={totalFund} transactions={transactions} />;
@@ -212,11 +209,22 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar currentView={view} setView={setView} user={authUser} onLogout={handleLogout} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <Header totalFund={totalFund} />
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-8 pb-12">
             {renderView()}
+            
+            {/* Footer Attribution */}
+            <footer className="pt-12 mt-12 border-t border-slate-200 flex flex-col items-center justify-center space-y-2 opacity-60 hover:opacity-100 transition-opacity">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">System Engineering</p>
+               <div className="flex items-center space-x-2">
+                  <span className="text-sm font-black text-slate-900">Mehedi Hasan Soumik</span>
+                  <span className="w-1 h-1 bg-indigo-400 rounded-full"></span>
+                  <span className="text-xs font-bold text-indigo-600">SQA Engineer</span>
+               </div>
+               <p className="text-[10px] text-slate-400 font-medium">FinTrack Pro v1.0.0 © 2025</p>
+            </footer>
           </div>
         </main>
       </div>
