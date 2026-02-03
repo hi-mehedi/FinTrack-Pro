@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Wallet, LogIn, AlertCircle, Play, Loader2 } from 'lucide-react';
+import { Wallet, LogIn, AlertCircle, Play } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup } from 'firebase/auth';
 
@@ -10,7 +11,6 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -26,13 +26,6 @@ const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemoClick = () => {
-    setDemoLoading(true);
-    if (onDemoLogin) onDemoLogin();
-    // Reset loading if parent doesn't immediately unmount us
-    setTimeout(() => setDemoLoading(false), 2000);
   };
 
   return (
@@ -56,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
         <div className="space-y-4">
           <button 
             onClick={handleGoogleLogin}
-            disabled={loading || demoLoading}
+            disabled={loading}
             className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 py-4 px-6 rounded-2xl hover:bg-slate-50 transition-all group disabled:opacity-50"
           >
             <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-6 h-6" />
@@ -64,20 +57,16 @@ const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
           </button>
 
           <button 
-            onClick={handleDemoClick}
-            disabled={loading || demoLoading}
-            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-4 px-6 rounded-2xl hover:bg-slate-800 transition-all group disabled:opacity-50 min-h-[60px]"
+            onClick={onDemoLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-4 px-6 rounded-2xl hover:bg-slate-800 transition-all group disabled:opacity-50"
           >
-            {demoLoading ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <Play size={18} className="fill-white" />
-            )}
-            <span className="font-bold">{demoLoading ? 'Preparing Demo...' : 'Explore Demo System'}</span>
+            <Play size={18} className="fill-white" />
+            <span className="font-bold">Explore Demo System</span>
           </button>
           
           <p className="text-xs text-center text-slate-400 px-4 leading-relaxed mt-4">
-            Personalize your management experience. Your data is isolated and secure.
+            Data is strictly private to your account. Demo accounts are temporary.
           </p>
         </div>
 
