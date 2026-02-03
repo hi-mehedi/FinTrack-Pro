@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Wallet, LogIn, AlertCircle } from 'lucide-react';
+import { Wallet, LogIn, AlertCircle, Play, Loader2 } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup } from 'firebase/auth';
 
 interface LoginProps {
-  onLogin?: () => void;
+  onDemoLogin?: () => void;
 }
 
-const Login: React.FC<LoginProps> = () => {
+const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -17,15 +18,21 @@ const Login: React.FC<LoginProps> = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error("Login Error:", err);
       if (err.code === 'auth/unauthorized-domain') {
-        setError("Domain Unauthorized: Please add this domain to 'Authorized domains' in your Firebase Authentication settings.");
+        setError("Domain Unauthorized: Add this to Firebase Auth domains.");
       } else {
-        setError(err.message || "Failed to sign in with Google.");
+        setError(err.message || "Sign in failed.");
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoClick = () => {
+    setDemoLoading(true);
+    if (onDemoLogin) onDemoLogin();
+    // Reset loading if parent doesn't immediately unmount us
+    setTimeout(() => setDemoLoading(false), 2000);
   };
 
   return (
@@ -36,7 +43,7 @@ const Login: React.FC<LoginProps> = () => {
             <Wallet size={32} />
           </div>
           <h1 className="text-3xl font-black text-slate-900 mb-2">FinTrack Pro</h1>
-          <p className="text-slate-500 font-medium">Cloud Expense & Salary System</p>
+          <p className="text-slate-500 font-medium">Salary & Bazar Management</p>
         </div>
 
         {error && (
@@ -49,43 +56,36 @@ const Login: React.FC<LoginProps> = () => {
         <div className="space-y-4">
           <button 
             onClick={handleGoogleLogin}
-            disabled={loading}
+            disabled={loading || demoLoading}
             className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 py-4 px-6 rounded-2xl hover:bg-slate-50 transition-all group disabled:opacity-50"
           >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-6 h-6" />
+            <span className="text-slate-700 font-bold">Continue with Google</span>
+          </button>
+
+          <button 
+            onClick={handleDemoClick}
+            disabled={loading || demoLoading}
+            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-4 px-6 rounded-2xl hover:bg-slate-800 transition-all group disabled:opacity-50 min-h-[60px]"
+          >
+            {demoLoading ? (
+              <Loader2 className="animate-spin" size={18} />
             ) : (
-              <img 
-                src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" 
-                alt="Google Logo" 
-                className="w-6 h-6 object-contain"
-              />
+              <Play size={18} className="fill-white" />
             )}
-            <span className="text-slate-700 font-bold">{loading ? "Connecting..." : "Continue with Google"}</span>
+            <span className="font-bold">{demoLoading ? 'Preparing Demo...' : 'Explore Demo System'}</span>
           </button>
           
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-4 text-slate-400 font-black tracking-widest">Firebase Secured</span>
-            </div>
-          </div>
-          
-          <p className="text-xs text-center text-slate-400 px-4 leading-relaxed">
-            FinTrack Pro uses real-time Firestore database for secure, cross-device data management.
+          <p className="text-xs text-center text-slate-400 px-4 leading-relaxed mt-4">
+            Personalize your management experience. Your data is isolated and secure.
           </p>
         </div>
 
         <div className="mt-12 pt-8 border-t border-slate-50 text-center">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Developed by</p>
+          <p className="text-xs font-bold text-slate-400 uppercase mb-1">Developed by</p>
           <p className="text-sm font-black text-slate-800">Mehedi Hasan Soumik</p>
-          <p className="text-xs text-indigo-600 font-bold">SQA Engineer</p>
         </div>
       </div>
-      
-      <p className="mt-8 text-slate-400 text-sm">© 2025 FinTrack Pro Cloud. Powered by Firebase.</p>
     </div>
   );
 };
