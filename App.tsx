@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, PaymentRecord, FundTransaction, View, AuthUser, BazarCost } from './types';
 import Dashboard from './components/Dashboard';
 import UserManagement from './components/UserManagement';
@@ -30,11 +31,21 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<FundTransaction[]>([]);
   const [bazarCosts, setBazarCosts] = useState<BazarCost[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Use a ref to track demo status to avoid stale closure in the auth listener
+  const isLocalDemoRef = useRef(false);
 
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // If we are currently in a manual local demo, don't let the auth listener reset us
+      if (isLocalDemoRef.current && !user) {
+        setLoading(false);
+        return;
+      }
+
       if (user) {
+        isLocalDemoRef.current = false;
         setIsLoggedIn(true);
         setAuthUser({
           uid: user.uid,
@@ -44,16 +55,14 @@ const App: React.FC = () => {
           isDemo: user.isAnonymous
         });
       } else {
-        // Only set loading false if we aren't in a manual local demo state
-        if (!authUser?.isDemo) {
-          setIsLoggedIn(false);
-          setAuthUser(null);
-        }
+        setIsLoggedIn(false);
+        setAuthUser(null);
+        isLocalDemoRef.current = false;
       }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [authUser?.isDemo]);
+  }, []);
 
   // Firestore Listeners
   useEffect(() => {
@@ -85,29 +94,50 @@ const App: React.FC = () => {
   }, [isLoggedIn, authUser]);
 
   const handleLogout = async () => {
-    if (window.confirm("Are you sure?")) {
+    if (window.confirm("Are you sure you want to logout?")) {
       await signOut(auth);
       setIsLoggedIn(false);
       setAuthUser(null);
+      isLocalDemoRef.current = false;
+      // Clear data on logout if it was local demo
+      if (authUser?.uid === 'local-demo') {
+        setUsers([]);
+        setPayments([]);
+        setTransactions([]);
+        setBazarCosts([]);
+      }
     }
   };
 
   const handleDemoLogin = async () => {
     setLoading(true);
     try {
-      // Attempt Firebase Anonymous Auth first
+      // Try official Firebase anonymous login
       await signInAnonymously(auth);
-    } catch (e: any) {
-      console.warn("Firebase Anonymous Login failed. Falling back to Local Demo mode.", e);
-      // Fallback: Local Demo (No persistence to cloud)
+    } catch (e) {
+      console.warn("Firebase Anonymous Login failed, using Local Fallback", e);
+      // Fallback to local session
+      isLocalDemoRef.current = true;
+      const localId = 'local-demo';
       setAuthUser({
-        uid: 'local-demo',
+        uid: localId,
         name: 'Guest Explorer',
         email: 'local@demo.site',
-        picture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest',
+        picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=explorer`,
         isDemo: true
       });
       setIsLoggedIn(true);
+
+      // Seed mock data so they "see" something
+      const mockUsers: User[] = [
+        { id: 'u1', ownerId: localId, name: 'Karim Ahmed', dailyTarget: 600, daysWorked: 15, createdAt: Date.now() },
+        { id: 'u2', ownerId: localId, name: 'Rahim Sheikh', dailyTarget: 550, daysWorked: 10, createdAt: Date.now() }
+      ];
+      const mockTrans: FundTransaction[] = [
+        { id: 't1', ownerId: localId, type: 'COLLECTION', amount: 40000, date: new Date().toISOString().split('T')[0], description: 'Initial Collection' }
+      ];
+      setUsers(mockUsers);
+      setTransactions(mockTrans);
     } finally {
       setLoading(false);
     }
@@ -117,16 +147,22 @@ const App: React.FC = () => {
     return transactions.reduce((acc, t) => t.type === 'COLLECTION' ? acc + t.amount : acc - t.amount, 0);
   }, [transactions]);
 
-  // Handlers (with local state fallback for Demo Mode)
   const handleAddUser = async (name: string, dailyTarget: number, daysWorked: number) => {
     if (!authUser) return;
     const id = crypto.randomUUID();
     const newUser: User = { id, ownerId: authUser.uid, name, dailyTarget, daysWorked, createdAt: Date.now() };
-    
     if (authUser.uid === 'local-demo') {
       setUsers([...users, newUser]);
     } else {
       await setDoc(doc(db, "users", id), newUser);
+    }
+  };
+
+  const handleUpdateUser = async (id: string, name: string, dailyTarget: number, daysWorked: number) => {
+    if (authUser?.uid === 'local-demo') {
+      setUsers(users.map(u => u.id === id ? { ...u, name, dailyTarget, daysWorked } : u));
+    } else {
+      await updateDoc(doc(db, "users", id), { name, dailyTarget, daysWorked });
     }
   };
 
@@ -161,7 +197,6 @@ const App: React.FC = () => {
     const newTrans: FundTransaction = {
       id, ownerId: authUser.uid, type, amount, date, description: desc || (type === 'COLLECTION' ? 'Inward' : 'Outward Return')
     };
-
     if (authUser.uid === 'local-demo') {
       setTransactions([...transactions, newTrans]);
     } else {
@@ -188,7 +223,14 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 space-y-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-bold animate-pulse">Initializing System...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
@@ -200,14 +242,14 @@ const App: React.FC = () => {
             <main className="flex-1 overflow-y-auto p-4 md:p-8">
               <div className="max-w-7xl mx-auto space-y-8 pb-12">
                 {authUser?.isDemo && (
-                  <div className="bg-amber-100 p-3 text-center text-xs font-bold rounded-2xl mb-4 border border-amber-200 text-amber-900 shadow-sm animate-in slide-in-from-top duration-500">
+                  <div className="bg-indigo-600 text-white p-3 text-center text-[10px] font-black uppercase tracking-widest rounded-2xl mb-4 shadow-lg shadow-indigo-100 animate-in slide-in-from-top duration-700">
                     {authUser.uid === 'local-demo' 
-                      ? "Explorer Mode: Changes will not persist after refresh. Enable Anonymous Auth in Firebase for cloud saving."
-                      : "Cloud Demo Session: Your data is private and saved to the cloud."}
+                      ? "Explorer Mode • Data resets on refresh" 
+                      : "Private Cloud Session • Encrypted & Isolated"}
                   </div>
                 )}
                 {view === 'DASHBOARD' && <Dashboard users={users} payments={payments} totalFund={totalFund} transactions={transactions} bazarCosts={bazarCosts} />}
-                {view === 'USERS' && <UserManagement users={users} payments={payments} onAdd={handleAddUser} onUpdate={()=>{}} onDelete={(id) => authUser.uid === 'local-demo' ? setUsers(users.filter(u=>u.id!==id)) : deleteDoc(doc(db, "users", id))} />}
+                {view === 'USERS' && <UserManagement users={users} payments={payments} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={(id) => authUser.uid === 'local-demo' ? setUsers(users.filter(u=>u.id!==id)) : deleteDoc(doc(db, "users", id))} />}
                 {view === 'PAYMENTS' && <PaymentTracking users={users} payments={payments} bazarCosts={bazarCosts} onAddPayment={handleAddPayment} onAddBazar={handleAddBazar} onUpdatePayment={()=>{}} />}
                 {view === 'FUNDS' && <FundManagement transactions={transactions} totalFund={totalFund} onAddCollection={handleAddCollection} onUpdateCollection={()=>{}} onDeleteCollection={(id) => authUser.uid === 'local-demo' ? setTransactions(transactions.filter(t=>t.id!==id)) : deleteDoc(doc(db, "transactions", id))} />}
               </div>
