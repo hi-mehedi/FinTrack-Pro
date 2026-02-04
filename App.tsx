@@ -215,7 +215,7 @@ const App: React.FC = () => {
         <>
           <Sidebar currentView={view} setView={setView} user={authUser} onLogout={handleLogout} />
           <div className="flex-1 flex flex-col h-full relative">
-            <Header totalFund={totalFund} />
+            <Header totalFund={totalFund} onLogout={handleLogout} />
             <main className="flex-1 overflow-y-auto no-scrollbar pt-6 px-4 md:px-10 pb-24 md:pb-10">
               <div className="max-w-5xl mx-auto view-animate">
                 {authUser?.isDemo && (
