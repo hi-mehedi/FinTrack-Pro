@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, PaymentRecord, FundTransaction, View, AuthUser, BazarCost } from './types';
 import Dashboard from './components/Dashboard';
@@ -7,6 +8,7 @@ import FundManagement from './components/FundManagement';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
+import BottomNav from './components/BottomNav';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { 
@@ -30,6 +32,10 @@ const App: React.FC = () => {
   const [bazarCosts, setBazarCosts] = useState<BazarCost[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Synchronized month selection
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
   const isLocalDemoRef = useRef(false);
 
   useEffect(() => {
@@ -84,14 +90,11 @@ const App: React.FC = () => {
   }, [isLoggedIn, authUser]);
 
   const handleLogout = async () => {
-    if (window.confirm("Are you sure you want to logout from FinTrack Pro?")) {
+    if (window.confirm("Are you sure you want to logout?")) {
       await signOut(auth);
       setIsLoggedIn(false);
       setAuthUser(null);
       isLocalDemoRef.current = false;
-      if (authUser?.uid === 'local-demo') {
-        setUsers([]); setPayments([]); setTransactions([]); setBazarCosts([]);
-      }
     }
   };
 
@@ -101,19 +104,19 @@ const App: React.FC = () => {
       await signInAnonymously(auth);
     } catch (e) {
       isLocalDemoRef.current = true;
-      setAuthUser({ uid: 'local-demo', name: 'Guest Explorer', email: 'local@demo.site', picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=explorer`, isDemo: true });
+      setAuthUser({ uid: 'local-demo', name: 'Demo User', email: 'local@demo.site', picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=explorer`, isDemo: true });
       setIsLoggedIn(true);
-      // Seed Demo Data
-      const demoId = 'local-demo';
-      setUsers([{ id: 'u1', ownerId: demoId, name: 'Karim Ahmed', dailyTarget: 600, daysWorked: 15, createdAt: Date.now() }, { id: 'u2', ownerId: demoId, name: 'Rahim Sheikh', dailyTarget: 500, daysWorked: 10, createdAt: Date.now() }]);
-      setTransactions([{ id: 't1', ownerId: demoId, type: 'COLLECTION', amount: 50000, date: new Date().toISOString().split('T')[0], description: 'Initial Fund Collection' }]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fund logic: Collection is PLUS, everything else is MINUS
   const totalFund = useMemo(() => {
-    return transactions.reduce((acc, t) => t.type === 'COLLECTION' ? acc + t.amount : acc - t.amount, 0);
+    return transactions.reduce((acc, t) => {
+      if (t.type === 'COLLECTION') return acc + t.amount;
+      return acc - t.amount; // PAYMENT, BAZAR, and RETURN deduct from net fund
+    }, 0);
   }, [transactions]);
 
   const handleAddUser = async (name: string, dailyTarget: number, daysWorked: number) => {
@@ -129,17 +132,26 @@ const App: React.FC = () => {
     else await updateDoc(doc(db, "users", id), { name, dailyTarget, daysWorked });
   };
 
-  const handleAddPayment = async (userId: string, date: string, amount: number) => {
+  const handleAddPayment = async (userId: string, date: string, amount: number, daysPaid?: number) => {
     if (!authUser) return;
     const user = users.find(u => u.id === userId);
     if (!user) return;
     const paymentId = crypto.randomUUID();
     const transId = crypto.randomUUID();
-    const expected = user.dailyTarget;
+    const expected = user.dailyTarget * (daysPaid || 1);
     const due = expected - amount;
     
-    const newPayment: PaymentRecord = { id: paymentId, ownerId: authUser.uid, userId, date, amountPaid: amount, dueAmount: due, expectedAmount: expected };
-    const newTrans: FundTransaction = { id: transId, ownerId: authUser.uid, type: 'PAYMENT', amount, date, description: `Salary: ${user.name}`, referenceId: paymentId };
+    const newPayment: PaymentRecord = { 
+      id: paymentId, 
+      ownerId: authUser.uid, 
+      userId, 
+      date, 
+      amountPaid: amount, 
+      dueAmount: due, 
+      expectedAmount: expected,
+      daysPaid: daysPaid || 1
+    };
+    const newTrans: FundTransaction = { id: transId, ownerId: authUser.uid, type: 'PAYMENT', amount, date, description: `Salary: ${user.name} (${daysPaid || 1}d)`, referenceId: paymentId };
 
     if (authUser.uid === 'local-demo') {
       setPayments(prev => [...prev, newPayment]);
@@ -150,26 +162,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdatePayment = async (paymentId: string, amount: number, date: string) => {
-    if (!authUser) return;
-    const payment = payments.find(p => p.id === paymentId);
-    if (!payment) return;
-    const user = users.find(u => u.id === payment.userId);
-    if (!user) return;
-    const due = user.dailyTarget - amount;
-
-    if (authUser.uid === 'local-demo') {
-      setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, amountPaid: amount, date, dueAmount: due } : p));
-      setTransactions(prev => prev.map(t => t.referenceId === paymentId ? { ...t, amount, date } : t));
-    } else {
-      await updateDoc(doc(db, "payments", paymentId), { amountPaid: amount, date, dueAmount: due });
-      const trans = transactions.find(t => t.referenceId === paymentId);
-      if (trans) await updateDoc(doc(db, "transactions", trans.id), { amount, date });
-    }
-  };
-
   const handleDeletePayment = async (paymentId: string) => {
-    if (!window.confirm("Delete this salary payout record?")) return;
+    if (!window.confirm("Delete record?")) return;
     if (authUser?.uid === 'local-demo') {
       setPayments(prev => prev.filter(p => p.id !== paymentId));
       setTransactions(prev => prev.filter(t => t.referenceId !== paymentId));
@@ -188,14 +182,6 @@ const App: React.FC = () => {
     else await setDoc(doc(db, "transactions", id), newTrans);
   };
 
-  const handleUpdateCollection = async (id: string, amount: number, date: string, desc: string) => {
-    if (authUser?.uid === 'local-demo') {
-      setTransactions(prev => prev.map(t => t.id === id ? { ...t, amount, date, description: desc } : t));
-    } else {
-      await updateDoc(doc(db, "transactions", id), { amount, date, description: desc });
-    }
-  };
-
   const handleAddBazar = async (items: string, amount: number, date: string) => {
     if (!authUser) return;
     const id = crypto.randomUUID();
@@ -212,7 +198,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteBazar = async (id: string) => {
-    if (!window.confirm("Delete this bazar entry?")) return;
+    if (!window.confirm("Delete entry?")) return;
     if (authUser?.uid === 'local-demo') {
       setBazarCosts(prev => prev.filter(b => b.id !== id));
       setTransactions(prev => prev.filter(t => t.referenceId !== id));
@@ -223,35 +209,66 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-slate-400 uppercase tracking-[0.3em] text-[10px] animate-pulse">FinTrack Pro</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+    <div className="h-[100dvh] w-full flex flex-col md:flex-row overflow-hidden bg-white">
       {!isLoggedIn ? <Login onDemoLogin={handleDemoLogin} /> : (
         <>
           <Sidebar currentView={view} setView={setView} user={authUser} onLogout={handleLogout} />
-          <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          <div className="flex-1 flex flex-col h-full relative">
             <Header totalFund={totalFund} />
-            <main className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="max-w-7xl mx-auto space-y-8 pb-12">
+            <main className="flex-1 overflow-y-auto no-scrollbar pt-6 px-4 md:px-10 pb-24 md:pb-10">
+              <div className="max-w-5xl mx-auto view-animate">
                 {authUser?.isDemo && (
-                  <div className="bg-indigo-600 text-white p-2 text-center text-[10px] font-black uppercase tracking-widest rounded-xl mb-4 shadow-lg animate-in slide-in-from-top duration-700">
-                    {authUser.uid === 'local-demo' ? "Explorer Mode • Refresh to clear data" : "Demo Session • Cloud Sync Active"}
+                  <div className="bg-indigo-600 text-white p-2.5 text-center text-[10px] font-black uppercase tracking-[0.2em] rounded-xl mb-6 shadow-md">
+                    Demo Mode • Private Access
                   </div>
                 )}
-                {view === 'DASHBOARD' && <Dashboard users={users} payments={payments} totalFund={totalFund} transactions={transactions} bazarCosts={bazarCosts} />}
-                {view === 'USERS' && <UserManagement users={users} payments={payments} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={(id) => authUser.uid === 'local-demo' ? setUsers(users.filter(u=>u.id!==id)) : deleteDoc(doc(db, "users", id))} />}
-                {view === 'PAYMENTS' && <PaymentTracking users={users} payments={payments} bazarCosts={bazarCosts} onAddPayment={handleAddPayment} onUpdatePayment={handleUpdatePayment} onDeletePayment={handleDeletePayment} onAddBazar={handleAddBazar} onDeleteBazar={handleDeleteBazar} />}
-                {view === 'FUNDS' && <FundManagement transactions={transactions} totalFund={totalFund} onAddCollection={handleAddCollection} onUpdateCollection={handleUpdateCollection} onDeleteCollection={(id) => authUser.uid === 'local-demo' ? setTransactions(transactions.filter(t=>t.id!==id)) : deleteDoc(doc(db, "transactions", id))} />}
+                
+                {view === 'DASHBOARD' && (
+                  <Dashboard 
+                    users={users} 
+                    payments={payments} 
+                    totalFund={totalFund} 
+                    transactions={transactions} 
+                    bazarCosts={bazarCosts}
+                    selectedMonth={selectedMonth}
+                    setSelectedMonth={setSelectedMonth}
+                  />
+                )}
+                {view === 'USERS' && (
+                  <UserManagement 
+                    users={users} 
+                    payments={payments} 
+                    selectedMonth={selectedMonth}
+                    onAdd={handleAddUser} 
+                    onUpdate={handleUpdateUser} 
+                    onDelete={(id) => authUser.uid === 'local-demo' ? setUsers(users.filter(u=>u.id!==id)) : deleteDoc(doc(db, "users", id))} 
+                  />
+                )}
+                {view === 'PAYMENTS' && (
+                  <PaymentTracking 
+                    users={users} 
+                    payments={payments} 
+                    bazarCosts={bazarCosts} 
+                    selectedMonth={selectedMonth}
+                    onAddPayment={handleAddPayment} 
+                    onDeletePayment={handleDeletePayment} 
+                    onAddBazar={handleAddBazar} 
+                    onDeleteBazar={handleDeleteBazar} 
+                  />
+                )}
+                {view === 'FUNDS' && (
+                  <FundManagement 
+                    transactions={transactions} 
+                    totalFund={totalFund} 
+                    selectedMonth={selectedMonth}
+                    onAddCollection={handleAddCollection} 
+                    onDeleteCollection={(id) => authUser.uid === 'local-demo' ? setTransactions(transactions.filter(t=>t.id!==id)) : deleteDoc(doc(db, "transactions", id))} 
+                  />
+                )}
               </div>
             </main>
+            <BottomNav currentView={view} setView={setView} />
           </div>
         </>
       )}

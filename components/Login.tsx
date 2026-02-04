@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Wallet, LogIn, AlertCircle, Play } from 'lucide-react';
+import { Wallet, AlertCircle, PlayCircle } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup } from 'firebase/auth';
 
@@ -18,62 +17,77 @@ const Login: React.FC<LoginProps> = ({ onDemoLogin }) => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      if (err.code === 'auth/unauthorized-domain') {
-        setError("Domain Unauthorized: Add this to Firebase Auth domains.");
-      } else {
-        setError(err.message || "Sign in failed.");
-      }
+      setError(err.message || "Sign in failed.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 p-10 border border-slate-100 animate-in zoom-in duration-500">
-        <div className="flex flex-col items-center text-center mb-10">
-          <div className="w-16 h-16 bg-indigo-600 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-6">
-            <Wallet size={32} />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 mb-2">FinTrack Pro</h1>
-          <p className="text-slate-500 font-medium">Salary & Bazar Management</p>
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-white p-6">
+      <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in duration-700">
+        
+        {/* Logo Container */}
+        <div className="w-20 h-20 bg-indigo-600 rounded-[1.75rem] flex items-center justify-center text-white shadow-2xl shadow-indigo-200 mb-8">
+          <Wallet size={36} />
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-sm font-medium flex items-start space-x-2">
-            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <button 
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-200 py-4 px-6 rounded-2xl hover:bg-slate-50 transition-all group disabled:opacity-50"
-          >
-            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-6 h-6" />
-            <span className="text-slate-700 font-bold">Continue with Google</span>
-          </button>
-
-          <button 
-            onClick={onDemoLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-4 px-6 rounded-2xl hover:bg-slate-800 transition-all group disabled:opacity-50"
-          >
-            <Play size={18} className="fill-white" />
-            <span className="font-bold">Explore Demo System</span>
-          </button>
-          
-          <p className="text-xs text-center text-slate-400 px-4 leading-relaxed mt-4">
-            Data is strictly private to your account. Demo accounts are temporary.
+        {/* Brand */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-3">FinTrack Pro</h1>
+          <p className="text-slate-500 font-medium text-lg leading-snug px-4">
+            Cloud Expense & Salary System
           </p>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-slate-50 text-center">
-          <p className="text-xs font-bold text-slate-400 uppercase mb-1">Developed by</p>
-          <p className="text-sm font-black text-slate-800">Mehedi Hasan Soumik</p>
+        {/* Login Options Card */}
+        <div className="w-full bg-white border border-slate-100 rounded-[2.5rem] p-4 shadow-xl shadow-slate-200/40 mb-10 space-y-3">
+          <button 
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center space-x-4 bg-white border-2 border-slate-50 py-5 px-6 rounded-[2rem] hover:bg-slate-50 transition-all active-scale group disabled:opacity-50"
+          >
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-7 h-7" />
+            <span className="text-slate-700 font-bold text-lg">Continue with Google</span>
+          </button>
+
+          {onDemoLogin && (
+            <button 
+              onClick={onDemoLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center space-x-3 bg-indigo-50 border-2 border-transparent py-4 px-6 rounded-[2rem] hover:bg-indigo-100 transition-all active-scale group disabled:opacity-50"
+            >
+              <PlayCircle size={20} className="text-indigo-600" />
+              <span className="text-indigo-700 font-black uppercase tracking-widest text-[11px]">Explore Demo Version</span>
+            </button>
+          )}
         </div>
+
+        {/* Firebase Badge */}
+        <div className="flex flex-col items-center mb-12">
+          <div className="flex items-center space-x-4 mb-3">
+            <div className="h-px w-12 bg-slate-100"></div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Firebase Secured</span>
+            <div className="h-px w-12 bg-slate-100"></div>
+          </div>
+          <p className="text-[11px] text-center text-slate-400 px-10 leading-relaxed font-medium">
+            FinTrack Pro uses real-time Firestore database for secure, cross-device data management.
+          </p>
+        </div>
+
+        {/* Developer Footer */}
+        <div className="text-center mt-auto">
+          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">Developed By</p>
+          <p className="text-sm font-black text-slate-800">Mehedi Hasan Soumik</p>
+          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">SQA Engineer</p>
+        </div>
+
+        {error && (
+          <div className="mt-8 p-4 bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold flex items-center space-x-2 border border-rose-100">
+            <AlertCircle size={14} />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface HeaderProps {
@@ -7,22 +6,22 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ totalFund }) => {
   return (
-    <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
-      <div>
-        <h2 className="text-sm font-medium text-slate-500">Welcome Back</h2>
-        <p className="text-xl font-bold text-slate-900">Expense Overview</p>
+    <header className="h-14 bg-white border-b border-slate-100 px-5 flex items-center justify-between sticky top-0 z-40">
+      <div className="min-w-0">
+        <h2 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] leading-none mb-1">Financial core</h2>
+        <p className="text-sm font-extrabold text-slate-900 leading-none">Live Monitor</p>
       </div>
       
-      <div className="flex items-center space-x-6">
-        <div className="text-right hidden sm:block">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cash in Hand</p>
-          <p className={`text-xl font-black ${totalFund >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+      <div className="flex items-center space-x-4">
+        <div className="flex flex-col items-end">
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Net Balance</p>
+          <p className={`text-xs md:text-sm font-extrabold leading-none ${totalFund >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
             ৳{totalFund.toLocaleString()}
           </p>
         </div>
         
-        <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
-          <img src="https://picsum.photos/40/40" alt="Avatar" className="w-full h-full object-cover" />
+        <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="https://api.dicebear.com/7.x/shapes/svg?seed=fintrack&backgroundColor=4f46e5" alt="Profile" className="w-full h-full scale-125" />
         </div>
       </div>
     </header>

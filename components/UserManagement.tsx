@@ -1,30 +1,29 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, PaymentRecord } from '../types';
-import { UserPlus, Edit2, Trash2, X, ChevronRight, Calendar, Info, ArrowUpRight, ArrowDownRight, CheckCircle2, History, Users, Wallet, MinusCircle } from 'lucide-react';
+import { Edit2, Trash2, X, ChevronRight, Plus, History, Calendar, TrendingUp } from 'lucide-react';
 
 interface UserManagementProps {
   users: User[];
   payments: PaymentRecord[];
+  selectedMonth: number;
   onAdd: (name: string, dailyTarget: number, daysWorked: number) => void;
   onUpdate: (id: string, name: string, dailyTarget: number, daysWorked: number) => void;
   onDelete: (id: string) => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, payments, onAdd, onUpdate, onDelete }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, payments, selectedMonth, onAdd, onUpdate, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', dailyTarget: '', daysWorked: '' });
+  const currentYear = new Date().getFullYear();
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.dailyTarget) return;
-    if (selectedUser && !isLedgerOpen) {
-      onUpdate(selectedUser.id, formData.name, parseFloat(formData.dailyTarget), parseInt(formData.daysWorked) || 0);
-    } else {
-      onAdd(formData.name, parseFloat(formData.dailyTarget), parseInt(formData.daysWorked) || 0);
-    }
+    onUpdate ? (selectedUser && !isLedgerOpen ? onUpdate(selectedUser.id, formData.name, parseFloat(formData.dailyTarget), parseInt(formData.daysWorked) || 0) : onAdd(formData.name, parseFloat(formData.dailyTarget), parseInt(formData.daysWorked) || 0)) : null;
     setIsModalOpen(false);
   };
 
@@ -41,219 +40,228 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, payments, onAdd,
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900">Staff Management</h2>
-          <p className="text-slate-500 font-medium">Manage employees and track their payout status.</p>
+    <div className="space-y-8 view-animate pb-10">
+      <div className="flex flex-col space-y-2">
+        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em]">Staff Administration</p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Personnel Directory</h2>
+          <div className="bg-indigo-50 text-indigo-600 px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+            {months[selectedMonth]} {currentYear}
+          </div>
         </div>
-        <button onClick={() => { setSelectedUser(null); setFormData({name:'', dailyTarget:'', daysWorked:''}); setIsModalOpen(true); }} className="flex items-center justify-center space-x-2 bg-indigo-600 text-white px-6 py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
-          <UserPlus size={20} />
-          <span>Add New Staff</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+        <div className="px-2 text-slate-500 font-bold text-sm">
+          Tracking daily income and extra/due payments for <b>{months[selectedMonth]}</b>. Working days auto-counted.
+        </div>
+        <button 
+          onClick={() => { setSelectedUser(null); setFormData({name:'', dailyTarget:'', daysWorked:''}); setIsModalOpen(true); }} 
+          className="flex items-center justify-center space-x-3 bg-indigo-600 text-white px-8 py-6 rounded-[2.5rem] font-black active-scale text-sm shadow-xl shadow-indigo-100 uppercase tracking-widest"
+        >
+          <Plus size={20} strokeWidth={3} />
+          <span>Add Personnel</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.length === 0 ? (
-          <div className="col-span-full py-20 bg-white rounded-[3rem] border border-dashed flex flex-col items-center justify-center text-slate-400">
-            <Users size={48} className="mb-4 opacity-20" />
-            <p className="font-bold">No staff members found.</p>
-          </div>
-        ) : users.map(user => {
+        {users.map(user => {
           const userPayments = payments.filter(p => p.userId === user.id);
-          const totalPaid = userPayments.reduce((a, b) => a + b.amountPaid, 0);
-          const totalExpected = user.dailyTarget * user.daysWorked;
-          const totalDue = totalExpected - totalPaid;
-
-          // Status determination
-          const statusType = totalDue > 0 ? 'DUE' : totalDue < 0 ? 'EXTRA' : 'BALANCED';
+          const monthPayments = userPayments.filter(p => {
+            const d = new Date(p.date);
+            return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+          });
+          
+          const monthPaid = monthPayments.reduce((a, b) => a + b.amountPaid, 0);
+          const monthDaysWorked = monthPayments.reduce((a, b) => a + (b.daysPaid || 0), 0);
+          const expectedMonthIncome = user.dailyTarget * monthDaysWorked;
+          const monthBalance = expectedMonthIncome - monthPaid;
 
           return (
-            <div key={user.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-              <div className={`absolute top-0 left-0 w-2 h-full ${statusType === 'DUE' ? 'bg-rose-500' : statusType === 'EXTRA' ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-slate-50 text-slate-400 border rounded-2xl flex items-center justify-center font-black text-lg group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors">{user.name.charAt(0)}</div>
-                <div className="flex space-x-1">
-                  <button onClick={() => openEdit(user)} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-colors"><Edit2 size={18} /></button>
-                  <button onClick={() => onDelete(user.id)} className="p-3 text-slate-400 hover:text-rose-600 hover:bg-slate-50 rounded-xl transition-colors"><Trash2 size={18} /></button>
+            <div key={user.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative group transition-all hover:border-indigo-200">
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-2xl border border-indigo-100">
+                  {user.name.charAt(0)}
+                </div>
+                <div className="flex space-x-2">
+                  <button onClick={() => openEdit(user)} className="p-3 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all"><Edit2 size={18} /></button>
+                  <button onClick={() => onDelete(user.id)} className="p-3 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"><Trash2 size={18} /></button>
                 </div>
               </div>
               
-              <h3 className="text-xl font-black text-slate-800 mb-1">{user.name}</h3>
-              <div className="flex items-center text-[10px] font-black uppercase text-slate-400 tracking-widest mb-6">
-                <Calendar size={12} className="mr-1.5"/> {user.daysWorked} Days Worked
+              <div className="mb-6">
+                <h3 className="text-2xl font-black text-slate-900 mb-2 truncate leading-tight">{user.name}</h3>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-[9px] font-black px-3 py-1 rounded-lg border tracking-[0.1em] ${
+                    monthBalance <= 0 ? (monthBalance === 0 ? 'bg-slate-50 text-slate-500 border-slate-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : 'bg-rose-50 text-rose-600 border-rose-100'
+                  }`}>
+                    {monthBalance <= 0 ? (monthBalance === 0 ? 'SETTLED' : `৳${Math.abs(monthBalance)} EXTRA`) : `৳${monthBalance} DUE`}
+                  </span>
+                  <span className="text-[9px] font-black px-3 py-1 rounded-lg border border-slate-100 bg-slate-50 text-slate-500 uppercase tracking-widest">
+                    Daily Income: ৳{user.dailyTarget}
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-white">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Target Rate</p>
-                  <p className="font-black text-slate-800">৳{user.dailyTarget}</p>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-slate-50 p-6 rounded-[1.75rem] border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest leading-none">Working Days</p>
+                  <p className="text-lg font-black text-slate-900">{monthDaysWorked} Days</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">This Month</p>
                 </div>
-                <div className="bg-indigo-50 p-4 rounded-2xl border border-white">
-                  <p className="text-[9px] font-black text-indigo-400 uppercase mb-1">Total Earned</p>
-                  <p className="font-black text-indigo-700">৳{totalExpected}</p>
+                <div className="bg-slate-50 p-6 rounded-[1.75rem] border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest leading-none">Total Paid</p>
+                  <p className="text-lg font-black text-indigo-600">৳{monthPaid.toLocaleString()}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Expected: ৳{expectedMonthIncome}</p>
                 </div>
               </div>
 
               <button 
                 onClick={() => openLedger(user)}
-                className={`w-full p-5 rounded-[1.75rem] flex justify-between items-center group/btn transition-all active:scale-95 ${
-                  statusType === 'DUE' ? 'bg-rose-50 text-rose-600' : 
-                  statusType === 'EXTRA' ? 'bg-emerald-50 text-emerald-600' : 
-                  'bg-indigo-50 text-indigo-600'
-                }`}
+                className="w-full p-6 bg-slate-50 border border-slate-100 text-slate-900 rounded-[1.75rem] flex justify-between items-center transition-all hover:bg-white active-scale group"
               >
-                <div className="text-left">
-                   <p className="text-[9px] font-black uppercase tracking-wider opacity-60">
-                     {statusType === 'DUE' ? 'Balance Due' : statusType === 'EXTRA' ? 'Extra Paid' : 'Balanced Status'}
-                   </p>
-                   <p className="font-black text-xl leading-none mt-1">৳{Math.abs(totalDue).toLocaleString()}</p>
+                <div className="flex items-center space-x-3">
+                  <History size={18} className="text-indigo-500" />
+                  <span className="font-black text-xs uppercase tracking-widest">{months[selectedMonth]} Details</span>
                 </div>
-                <div className="flex items-center space-x-2 bg-white/50 px-3 py-2 rounded-xl">
-                  <span className="text-[10px] font-black uppercase tracking-wider">Ledger</span>
-                  <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                </div>
+                <ChevronRight size={18} strokeWidth={3} className="text-slate-300 group-hover:text-indigo-500" />
               </button>
             </div>
           );
         })}
       </div>
 
-      {/* Ledger Modal */}
       {isLedgerOpen && selectedUser && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-0 sm:p-4">
-          <div className="bg-white w-full max-w-2xl sm:rounded-[3rem] shadow-2xl flex flex-col h-full sm:h-auto sm:max-h-[90vh] overflow-hidden animate-in zoom-in duration-300">
-            <div className="p-6 sm:p-8 border-b flex justify-between items-center bg-slate-50/50 sticky top-0 z-10">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-white border rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm">
-                   <Wallet size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-none">{selectedUser.name}</h3>
-                  <p className="text-slate-500 font-bold uppercase text-[9px] tracking-[0.2em] mt-1.5">Date-Wise Salary History</p>
-                </div>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4 view-animate">
+          <div className="bg-white w-full max-w-lg rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="px-10 py-10 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-20">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">{selectedUser.name} History</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Selected Month Audit: {months[selectedMonth]}</p>
               </div>
-              <button onClick={() => setIsLedgerOpen(false)} className="p-3 bg-white rounded-2xl shadow-sm hover:bg-slate-50 border transition-all active:scale-90"><X /></button>
+              <button onClick={() => setIsLedgerOpen(false)} className="p-3 bg-slate-100 rounded-2xl active-scale"><X size={24} /></button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 text-center sm:text-left">
-                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Daily Target</p>
-                      <p className="text-xl font-black">৳{selectedUser.dailyTarget}</p>
+            <div className="flex-1 overflow-y-auto p-10 no-scrollbar bg-white">
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-center">
+                      <p className="text-[9px] font-black text-indigo-600 uppercase mb-1 tracking-widest">Total Days Worked</p>
+                      <p className="text-2xl font-black text-indigo-700">
+                        {payments.filter(p => {
+                          const d = new Date(p.date);
+                          return p.userId === selectedUser.id && d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+                        }).reduce((a, b) => a + (b.daysPaid || 0), 0)}
+                      </p>
                    </div>
-                   <div className="bg-emerald-50 p-5 rounded-3xl border border-emerald-100 text-center sm:text-left">
-                      <p className="text-[10px] font-black text-emerald-400 uppercase mb-1">Paid to Date</p>
-                      <p className="text-xl font-black text-emerald-700">৳{payments.filter(p => p.userId === selectedUser.id).reduce((a,b)=>a+b.amountPaid,0).toLocaleString()}</p>
-                   </div>
-                   <div className="bg-indigo-50 p-5 rounded-3xl border border-indigo-100 col-span-2 sm:col-span-1 text-center sm:text-left">
-                      <p className="text-[10px] font-black text-indigo-400 uppercase mb-1">Work Tenure</p>
-                      <p className="text-xl font-black text-indigo-700">{selectedUser.daysWorked} Days</p>
+                   <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 text-center">
+                      <p className="text-[9px] font-black text-emerald-600 uppercase mb-1 tracking-widest">Current Balance</p>
+                      <p className="text-xl font-black text-emerald-700">
+                        {(() => {
+                           const mPayments = payments.filter(p => {
+                             const d = new Date(p.date);
+                             return p.userId === selectedUser.id && d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+                           });
+                           const totalPaid = mPayments.reduce((a, b) => a + b.amountPaid, 0);
+                           const totalExpected = mPayments.reduce((a, b) => a + (b.daysPaid * selectedUser.dailyTarget), 0);
+                           const bal = totalExpected - totalPaid;
+                           return bal <= 0 ? (bal === 0 ? "Settled" : `৳${Math.abs(bal)} Ex`) : `৳${bal} Due`;
+                        })()}
+                      </p>
                    </div>
                 </div>
 
-                <div className="pt-2">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center">
-                      <History className="mr-2" size={14}/> Day-by-Day Activity
-                    </h4>
-                  </div>
-
-                  <div className="space-y-3">
+                <div className="space-y-6">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Payment Audit (Date-wise)</h4>
+                  <div className="space-y-4">
                     {payments
-                      .filter(p => p.userId === selectedUser.id)
+                      .filter(p => {
+                        const d = new Date(p.date);
+                        return p.userId === selectedUser.id && d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+                      })
                       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map(p => {
-                        const diff = p.amountPaid - selectedUser.dailyTarget;
+                        const expected = p.daysPaid * selectedUser.dailyTarget;
+                        const diff = p.amountPaid - expected;
+                        const status = diff === 0 ? 'SETTLED' : diff < 0 ? 'DUE' : 'EXTRA';
+
                         return (
-                          <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white border border-slate-100 rounded-[2.25rem] hover:border-indigo-100 transition-all shadow-sm hover:shadow-md gap-4">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 flex-shrink-0">
-                                <Calendar size={20}/>
+                          <div key={p.id} className="p-6 bg-slate-50/50 rounded-[1.75rem] border border-slate-100 flex flex-col space-y-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-white rounded-xl text-slate-400 border border-slate-100">
+                                  <Calendar size={16} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-black text-slate-900">{new Date(p.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase">{p.daysPaid || 0} Working Days</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-black text-slate-800">{new Date(p.date).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric' })}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Calculated Rate: ৳{selectedUser.dailyTarget}</p>
+                              <div className="text-right">
+                                <p className="text-lg font-black text-slate-900 leading-none mb-1">৳{p.amountPaid.toLocaleString()}</p>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border inline-block ${
+                                  status === 'DUE' ? 'bg-rose-50 text-rose-600 border-rose-100' : status === 'EXTRA' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-200 text-slate-500 border-transparent'
+                                }`}>
+                                  {status === 'DUE' ? `৳${Math.abs(diff)} Due` : status === 'EXTRA' ? `৳${diff} Extra` : 'Settled'}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex sm:flex-col justify-between items-center sm:items-end">
-                               <p className="text-xl font-black text-slate-900">৳{p.amountPaid.toLocaleString()}</p>
-                               {diff > 0 ? (
-                                 <span className="inline-flex items-center text-[10px] font-black bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-xl uppercase border border-emerald-200">
-                                   <ArrowUpRight size={10} className="mr-1"/> ৳{diff} Extra
-                                 </span>
-                               ) : diff < 0 ? (
-                                 <span className="inline-flex items-center text-[10px] font-black bg-rose-100 text-rose-700 px-3 py-1.5 rounded-xl uppercase border border-rose-200">
-                                   <ArrowDownRight size={10} className="mr-1"/> ৳{Math.abs(diff)} Due
-                                 </span>
-                               ) : (
-                                 <span className="inline-flex items-center text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-xl uppercase tracking-tighter">
-                                   <CheckCircle2 size={10} className="mr-1"/> Balanced
-                                 </span>
-                               )}
+                            <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                               <span>Expected for {p.daysPaid}d: ৳{expected.toLocaleString()}</span>
+                               <span className="text-indigo-500 font-black">Wage: ৳{selectedUser.dailyTarget}/d</span>
                             </div>
                           </div>
                         );
                       })}
-                    {payments.filter(p => p.userId === selectedUser.id).length === 0 && (
-                      <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
-                         <History size={40} className="mx-auto mb-4 opacity-10" />
-                         <p className="text-sm font-bold text-slate-400">No payment data recorded yet.</p>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
+            </div>
+            <div className="px-10 py-8 bg-white border-t border-slate-50">
+              <button onClick={() => setIsLedgerOpen(false)} className="w-full py-5 bg-slate-900 text-white font-black rounded-[1.75rem] uppercase tracking-widest text-xs active-scale">Close View</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add/Edit User Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 animate-in slide-in-from-bottom duration-300">
-            <h3 className="text-2xl font-black text-slate-900 mb-6">{selectedUser ? 'Edit Profile' : 'New Staff'}</h3>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4 view-animate">
+          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl p-10 border border-slate-100">
+            <h3 className="text-3xl font-black text-slate-900 mb-8 tracking-tight">{selectedUser ? 'Edit Staff' : 'Register Staff'}</h3>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Name</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-3 tracking-widest">Full Name</label>
                 <input 
-                  autoFocus
-                  placeholder="Employee Name" 
-                  className="w-full p-4 bg-slate-50 border-transparent rounded-2xl outline-none font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all border"
+                  placeholder="e.g. Salim Ahmed" 
+                  className="w-full"
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Rate (৳)</label>
-                  <input 
-                    type="number" placeholder="500" 
-                    className="w-full p-4 bg-slate-50 border-transparent rounded-2xl outline-none font-bold focus:bg-white border"
-                    value={formData.dailyTarget}
-                    onChange={e => setFormData({...formData, dailyTarget: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Days Worked</label>
-                  <input 
-                    type="number" placeholder="0" 
-                    className="w-full p-4 bg-slate-50 border-transparent rounded-2xl outline-none font-bold focus:bg-white border"
-                    value={formData.daysWorked}
-                    onChange={e => setFormData({...formData, daysWorked: e.target.value})}
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-3 tracking-widest">Daily Income (Wage)</label>
+                <input 
+                  type="number" placeholder="৳500" 
+                  className="w-full"
+                  value={formData.dailyTarget}
+                  onChange={e => setFormData({...formData, dailyTarget: e.target.value})}
+                />
               </div>
-              <div className="flex space-x-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 font-bold text-slate-400 hover:text-slate-600">Cancel</button>
-                <button type="submit" className="flex-[2] py-5 bg-indigo-600 text-white rounded-[1.75rem] font-black shadow-lg shadow-indigo-100 transition-all active:scale-95">Save Details</button>
+              <div className="flex space-x-4 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px]">Cancel</button>
+                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] shadow-xl">
+                  {selectedUser ? 'Save' : 'Register'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <div className="py-10 text-center border-t border-slate-50">
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em]">Developed By</p>
+        <p className="text-xs font-black text-slate-800 mt-1 uppercase tracking-wider">Mehedi Hasan Soumik</p>
+      </div>
     </div>
   );
 };

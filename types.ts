@@ -1,10 +1,10 @@
 
 export interface User {
   id: string;
-  ownerId: string; // To identify which Google/Demo account owns this data
+  ownerId: string;
   name: string;
   dailyTarget: number; // Daily wage
-  daysWorked: number; // Total days worked
+  daysWorked: number; // Expected days for the period
   createdAt: number;
 }
 
@@ -16,6 +16,7 @@ export interface PaymentRecord {
   amountPaid: number;
   dueAmount: number;
   expectedAmount: number;
+  daysPaid: number; // Days this specific payment covers
 }
 
 export interface BazarCost {
